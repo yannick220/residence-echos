@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ÉCHOS — Romain Vuillermet</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@100;200;300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+
+:root {
+  --black: #080808;
+  --white: #f8f8f6;
+  --t1: #2a2a2a;
+  --t2: #4a4a4a;
+  --t3: #606060;
+  --t4: #909090;
+  --line: rgba(0,0,0,0.08);
+}
+
+html { scroll-behavior: auto; }
+
+body {
+  font-family: 'Montserrat', sans-serif;
+  background: var(--white);
+  color: var(--t1);
+  overflow-x: hidden;
+  cursor: none;
+}
+
+/* CURSOR */
+#cursor {
+  position: fixed;
+  width: 7px; height: 7px;
+  background: var(--t1);
+  border-radius: 0;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%,-50%) rotate(0deg);
+  opacity: 0;
+  transition: width 0.25s ease, height 0.25s ease, opacity 0.4s ease, transform 0.25s ease;
+  mix-blend-mode: multiply;
+}
+#cursor.active { opacity: 1; }
+#cursor.expand {
+  width: 20px; height: 20px;
+  opacity: 0.12;
+  transform: translate(-50%,-50%) rotate(45deg);
+}
+
+/* CANVAS */
+#canvas-container { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+canvas { display: block; width: 100% !important; height: 100% !important; }
+
+/* SCROLL CONTAINER */
+#scroll-container { position: relative; z-index: 2; pointer-events: none; }
+
+.beat {
+  min-height: 100vh;
+  display: flex; align-items: center;
+  padding: 0 80px;
+  pointer-events: none; position: relative;
+}
+.beat--center { justify-content: center; text-align: center; }
+.beat--left   { justify-content: flex-start; }
+.beat--right  { justify-content: flex-end; }
+
+/* NAV */
+#nav {
+  position: fixed; top: 0; left: 0; right: 0;
+  z-index: 100;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 32px 60px; pointer-events: all;
+  transition: background 0.5s;
+}
+#nav.solid {
+  background: rgba(248,248,246,0.92);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--line);
+}
+.nav-logo {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.35em;
+  text-transform: uppercase; color: var(--t1); text-decoration: none;
+}
+.nav-links { display: flex; gap: 40px; }
+.nav-links a {
+  font-size: 8px; font-weight: 500; letter-spacing: 0.25em;
+  text-transform: uppercase; color: var(--t4);
+  text-decoration: none; transition: color 0.3s; pointer-events: all;
+}
+.nav-links a:hover { color: var(--t1); }
+
+/* TEXT BLOCKS */
+.text-block {
+  max-width: 480px; opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 1.2s ease, transform 1.2s ease;
+  position: relative; z-index: 5;
+  background: rgba(248,248,246,0.72);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  padding: 40px 48px;
+}
+.text-block.visible { opacity: 1; transform: translateY(0); }
+.text-block.fade-out { opacity: 0; transform: translateY(-16px); }
+
+/* LABELS */
+.label {
+  font-size: 8px; font-weight: 600; letter-spacing: 0.45em;
+  text-transform: uppercase; color: var(--t4);
+  margin-bottom: 28px; display: flex; align-items: center; gap: 16px;
+}
+.label::after { content: ''; display: block; width: 32px; height: 1px; background: var(--t4); }
+
+/* TITRES */
+.heading-xl {
+  font-size: clamp(52px, 8vw, 110px); font-weight: 700;
+  letter-spacing: 0.12em; line-height: 1;
+  margin-bottom: 40px; color: var(--t1);
+}
+.heading-lg {
+  font-size: clamp(28px, 4vw, 52px); font-weight: 200;
+  line-height: 1.4; letter-spacing: -0.01em;
+  margin-bottom: 32px; color: var(--t1);
+}
+.heading-md {
+  font-size: clamp(16px, 2.2vw, 24px); font-weight: 300;
+  line-height: 1.7; margin-bottom: 24px; color: var(--t2);
+}
+
+/* CORPS */
+.body-text {
+  font-size: 13px; font-weight: 300;
+  line-height: 2; color: var(--t3); margin-bottom: 20px;
+}
+.body-text em { font-style: normal; font-weight: 600; color: var(--t1); }
+
+/* PANELS */
+.beat--panel { position: relative; z-index: 10; }
+.beat--panel .text-block {
+  background: rgba(248,248,246,0.78);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  padding: 48px 56px; max-width: 560px;
+}
+.beat--panel-dark .text-block {
+  background: rgba(248,248,246,0.78);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  padding: 48px 56px; max-width: 520px;
+}
+
+/* RESTITUTION */
+.date-big {
+  font-size: clamp(36px,5vw,72px); font-weight: 700;
+  letter-spacing: -0.02em; line-height: 1;
+  margin-bottom: 28px; color: var(--t1);
+}
+.event-row { border-top: 1px solid var(--line); padding: 14px 0; display: flex; gap: 32px; }
+.event-row:last-of-type { border-bottom: 1px solid var(--line); }
+.event-date-label {
+  font-size: 9px; font-weight: 600; letter-spacing: 0.25em;
+  text-transform: uppercase; color: var(--t4);
+  white-space: nowrap; min-width: 140px; padding-top: 2px;
+}
+.event-desc { font-size: 13px; font-weight: 300; line-height: 1.8; color: var(--t3); }
+
+/* PROGRESS */
+#progress-line {
+  position: fixed; left: 0; top: 0;
+  width: 1px; height: 0%;
+  background: var(--t1); opacity: 0.15;
+  z-index: 50; transition: height 0.1s linear;
+}
+
+/* SCROLL HINT */
+#scroll-hint {
+  position: fixed; bottom: 40px; left: 50%;
+  transform: translateX(-50%); z-index: 50;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  opacity: 1; transition: opacity 0.8s;
+}
+#scroll-hint span { font-size: 8px; font-weight: 500; letter-spacing: 0.35em; text-transform: uppercase; color: var(--t4); }
+.hint-line { width: 1px; height: 40px; background: var(--t4); opacity: 0.5; animation: hintPulse 1.8s ease-in-out infinite; }
+@keyframes hintPulse {
+  0%,100% { opacity: 0.2; transform: scaleY(1); }
+  50% { opacity: 0.6; transform: scaleY(0.5); }
+}
+
+/* SIZE COUNTER */
+#size-counter {
+  position: fixed; right: 36px; top: 88px;
+  z-index: 50; text-align: right;
+  opacity: 0; transition: opacity 0.8s; pointer-events: none;
+}
+#size-counter.visible { opacity: 1; }
+#size-value { font-size: 44px; font-weight: 100; letter-spacing: -0.02em; color: var(--t1); line-height: 1; font-variant-numeric: tabular-nums; }
+#size-unit { font-size: 10px; font-weight: 400; letter-spacing: 0.28em; color: var(--t4); text-transform: uppercase; }
+
+/* FOOTER */
+footer {
+  background: var(--black); padding: 80px 60px;
+  display: flex; justify-content: space-between; align-items: flex-end;
+  pointer-events: all; position: relative; z-index: 10;
+}
+.footer-logo { font-size: 28px; font-weight: 700; letter-spacing: 0.15em; color: var(--white); }
+.footer-sub { font-size: 10px; font-weight: 300; letter-spacing: 0.12em; color: rgba(255,255,255,0.35); line-height: 2; margin-top: 16px; }
+.footer-partner { font-size: 9px; font-weight: 400; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(255,255,255,0.25); }
+.footer-partner-name { font-size: 11px; font-weight: 500; letter-spacing: 0.15em; color: rgba(255,255,255,0.5); margin-top: 8px; }
+
+/* MOBILE */
+@media (max-width: 768px) {
+  .beat { padding: 0 28px; min-height: 90vh; }
+  #nav { padding: 24px 28px; }
+  .nav-links { display: none; }
+  #size-counter { right: 20px; }
+  footer { flex-direction: column; gap: 32px; }
+}
+</style>
+</head>
+<body>
+
+<div id="cursor"></div>
+<div id="progress-line"></div>
+<div id="canvas-container"><canvas id="cube-canvas"></canvas></div>
+
+<nav id="nav">
+  <a class="nav-logo" href="#">ÉCHOS</a>
+  <div class="nav-links">
+    <a href="#" data-palier="0">Le Phénomène</a>
+    <a href="#" data-palier="1">La Résidence</a>
+    <a href="#" data-palier="2">L'Artiste</a>
+    <a href="#" data-palier="3">La Restitution</a>
+  </div>
+</nav>
+
+<div id="size-counter">
+  <div id="size-value">5</div>
+  <div id="size-unit">cm</div>
+</div>
+
+<div id="scroll-hint">
+  <span>Observer</span>
+  <div class="hint-line"></div>
+</div>
+
+<div id="scroll-container">
+
+  <!-- HERO -->
+  <div class="beat beat--center" style="min-height:100vh;">
+    <div class="text-block" id="tb-hero" style="text-align:center; display:flex; flex-direction:column; align-items:center; max-width:none; background:none; backdrop-filter:none; -webkit-backdrop-filter:none; padding:0;">
+      <div class="heading-xl">ÉCHOS</div>
+      <p style="font-size:10px; font-weight:500; letter-spacing:0.3em; text-transform:uppercase; color:var(--t4); margin-bottom:6px; white-space:nowrap;">
+        Une résidence artistique de Romain Vuillermet
+      </p>
+      <p style="font-size:10px; font-weight:400; letter-spacing:0.3em; text-transform:uppercase; color:var(--t4); white-space:nowrap;">
+        Le Lycée Hôtelier de La Rochelle
+      </p>
+    </div>
+  </div>
+
+  <!-- I — PHÉNOMÈNE -->
+  <div class="beat beat--left" id="s-phenomene" style="min-height:100vh; align-items:flex-start; padding-top:20vh;">
+    <div class="text-block" id="tb-phen">
+      <div class="label">I — Le Phénomène</div>
+      <p class="heading-md">
+        Le lundi <em>13 avril 2026</em>, un petit cube noir de <em>5 centimètres</em> exactement apparaîtra sur le sol du patio du Lycée Hôtelier de La Rochelle.
+      </p>
+      <p class="body-text">
+        D'une semaine à l'autre, sa taille évoluera par palier jusqu'à atteindre, début mai, près de deux mètres de côté.
+      </p>
+      <p class="body-text" style="opacity:0.5; font-style:italic; letter-spacing:0.03em;">
+        Aucune explication ne sera donnée sur son origine.
+      </p>
+    </div>
+  </div>
+
+  <!-- II — RÉSIDENCE -->
+  <div class="beat beat--right" id="s-residence" style="min-height:100vh; align-items:flex-start; padding-top:20vh;">
+    <div class="text-block" id="tb-res">
+      <div class="label">II — La Résidence</div>
+      <p class="heading-md">
+        Ce phénomène fera l'objet d'un travail d'observation, de documentation et d'interprétation.
+      </p>
+      <p class="body-text">
+        Dès l'apparition du cube, des photographies seront produites et des récits émergeront, allant jusqu'à rappeler d'autres occurrences à différentes époques et en différents lieux de la planète.
+      </p>
+      <p class="body-text">
+        C'est sur la base de cette mythologie que reposera la résidence artistique <em>ÉCHOS</em>, menée par Romain Vuillermet avec des élèves de l'établissement, dans le cadre d'un dispositif financé par la <em>Région Nouvelle-Aquitaine</em>.
+      </p>
+    </div>
+  </div>
+
+  <!-- III — ARTISTE -->
+  <div class="beat beat--center beat--panel" id="s-artiste" style="min-height:100vh; align-items:flex-start; padding-top:20vh;">
+    <div class="text-block" id="tb-artist" style="max-width:560px; text-align:center;">
+      <div class="label" style="justify-content:center;">III — L'Artiste</div>
+      <div class="heading-lg">Romain<br>Vuillermet</div>
+      <p class="body-text">
+        Le travail de Romain s'inscrira dans une approche organique. Il construira la mythologie du cube à partir du récit, en mobilisant l'écriture, la photographie et la reliure, et en donnant à ces éléments une forme tangible à travers l'objet livre.
+      </p>
+      <div style="display:flex; gap:16px; justify-content:center; margin-top:8px; flex-wrap:wrap;">
+        <span style="font-size:8px; font-weight:500; letter-spacing:0.28em; text-transform:uppercase; border:1px solid rgba(90,90,90,0.3); padding:9px 16px; color:var(--t3);">Écriture</span>
+        <span style="font-size:8px; font-weight:500; letter-spacing:0.28em; text-transform:uppercase; border:1px solid rgba(90,90,90,0.3); padding:9px 16px; color:var(--t3);">Photographie</span>
+        <span style="font-size:8px; font-weight:500; letter-spacing:0.28em; text-transform:uppercase; border:1px solid rgba(90,90,90,0.3); padding:9px 16px; color:var(--t3);">Reliure</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- IV — LES ÉLÈVES -->
+  <div class="beat beat--left beat--panel" id="s-eleves" style="min-height:100vh; align-items:flex-start; padding-top:20vh;">
+    <div class="text-block" id="tb-eleves" style="max-width:520px;">
+      <div class="label">IV — Les Élèves</div>
+      <p class="heading-md">
+        Les élèves prendront le relais de la construction artistique de Romain.
+      </p>
+      <p class="body-text">
+        À partir des images et des récits produits, ils prolongeront l'histoire du cube au sein du lycée. Lorsque le phénomène dépassera ce que permet une installation physique — au-delà de deux mètres — ils mobiliseront l'intelligence artificielle pour en explorer les prolongements, en imaginer les effets et produire de nouvelles images.
+      </p>
+      <div style="display:flex; gap:16px; margin-top:8px; flex-wrap:wrap;">
+        <span style="font-size:8px; font-weight:500; letter-spacing:0.28em; text-transform:uppercase; border:1px solid rgba(90,90,90,0.3); padding:9px 16px; color:var(--t3);">Photographie</span>
+        <span style="font-size:8px; font-weight:500; letter-spacing:0.28em; text-transform:uppercase; border:1px solid rgba(90,90,90,0.3); padding:9px 16px; color:var(--t3);">Intelligence artificielle</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- V — L'ENJEU -->
+  <div class="beat beat--right beat--panel-dark" style="min-height:100vh; align-items:flex-start; padding-top:20vh;">
+    <div class="text-block" id="tb-stake" style="max-width:440px;">
+      <div class="label">V — L'Enjeu</div>
+      <p class="heading-md">
+        Ce passage de relais interrogera <em>la place de l'artiste aujourd'hui</em>, à l'heure de l'IA générative, et la manière dont les jeunes s'approprieront ces outils pour prolonger, transformer ou réinterpréter un récit.
+      </p>
+    </div>
+  </div>
+
+  <!-- VI — RESTITUTION -->
+  <div class="beat beat--left beat--panel" id="s-restitution" style="min-height:100vh; align-items:flex-start; padding-top:20vh;">
+    <div class="text-block" id="tb-rest" style="max-width:580px; background:rgba(248,248,246,0.90); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);">
+      <div class="label">VI — La Restitution Publique</div>
+      <div class="date-big">4 — 7 Mai</div>
+      <p class="body-text" style="margin-bottom:36px;">
+        Du lundi 4 au jeudi 7 mai, ce travail sera rendu public dans le patio du lycée. Le cube y sera visible à son échelle physique la plus grande, entouré des images, des objets et des éléments narratifs produits tout au long de la résidence.
+      </p>
+      <div class="event-row">
+        <div class="event-date-label">4 — 7 Mai</div>
+        <div class="event-desc">Rencontres avec l'artiste<br><span style="opacity:0.5; font-size:11px;">Ouvert aux visiteurs, partenaires et presse</span></div>
+      </div>
+      <div class="event-row">
+        <div class="event-date-label">Mer. 6 Mai · 18h</div>
+        <div class="event-desc">Vernissage<br><span style="opacity:0.5; font-size:11px;">En présence d'élus de la Région Nouvelle-Aquitaine</span></div>
+      </div>
+      <div class="event-row">
+        <div class="event-date-label">Lieu</div>
+        <div class="event-desc">Patio du Lycée Hôtelier de La Rochelle</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="min-height:30vh;"></div>
+
+</div>
+
+<footer>
+  <div>
+    <div class="footer-logo">ÉCHOS</div>
+    <div class="footer-sub">
+      Résidence artistique de Romain Vuillermet<br>
+      Le Lycée Hôtelier de La Rochelle · 2026
+    </div>
+  </div>
+  <div style="text-align:center;">
+    <div class="footer-partner">Avec le soutien de</div>
+    <div class="footer-partner-name">Région Nouvelle-Aquitaine</div>
+  </div>
+  <div style="text-align:right;">
+    <div class="footer-partner">Site réalisé par</div>
+    <div class="footer-partner-name">Yannick Devin</div>
+    <div style="font-size:10px; font-weight:300; letter-spacing:0.08em; color:rgba(255,255,255,0.5); margin-top:6px; line-height:1.8;">
+      Référent jeunesse · Lycée Hôtelier de La Rochelle<br>
+      Coordinateur de la résidence
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const lerp = (a, b, t) => a + (b - a) * t;
+const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+const easeInOutCubic = t => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2;
+const easeOutExpo = t => t === 1 ? 1 : 1 - Math.pow(2, -10*t);
+
+const canvas = document.getElementById('cube-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x000000, 0);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 1000);
+camera.position.set(0, 0, 5);
+
+const geometry = new THREE.BoxGeometry(1, 1, 1);
+const material = new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.97, metalness: 0.0 });
+const cube = new THREE.Mesh(geometry, material);
+scene.add(cube);
+material.transparent = true;
+material.opacity = 0;
+let cubeOpacity = 0;
+
+const edgesGeo = new THREE.EdgesGeometry(geometry);
+const edgesMat = new THREE.LineBasicMaterial({ color: 0x444444, transparent: true, opacity: 0.0 });
+cube.add(new THREE.LineSegments(edgesGeo, edgesMat));
+
+scene.add(new THREE.AmbientLight(0xf8f8f6, 0.8));
+const d1 = new THREE.DirectionalLight(0xffffff, 0.6); d1.position.set(3, 4, 3); scene.add(d1);
+const d2 = new THREE.DirectionalLight(0xf0f0f0, 0.2); d2.position.set(-3, -2, 2); scene.add(d2);
+const ambientLight = scene.children.find(c => c.isAmbientLight);
+
+let scrollY = 0, targetScrollY = 0;
+let cubeScale = 0.001, targetCubeScale = 0.001;
+let rotX = 0, rotY = 0, targetRotX = 0, targetRotY = 0;
+let mouseX = 0, mouseY = 0;
+let autonomousT = 0, lastScrollY = 0, scrollVelocity = 0;
+
+const PALIERS = [
+  { cm: 5,   s: 0.040, progress: 0.12 },
+  { cm: 17,  s: 0.320, progress: 0.35 },
+  { cm: 60,  s: 1.100, progress: 0.60 },
+  { cm: 200, s: 4.000, progress: 0.90 },
+];
+
+function scrollToScale(progress) {
+  const p = clamp(progress, 0, 1);
+  if (p < PALIERS[0].progress)
+    return lerp(0.001, PALIERS[0].s, easeOutExpo(p / PALIERS[0].progress));
+  for (let i = 0; i < PALIERS.length - 1; i++) {
+    const a = PALIERS[i], b = PALIERS[i + 1];
+    if (p <= b.progress) {
+      const t = clamp((p - a.progress) / (b.progress - a.progress), 0, 1);
+      return lerp(a.s, b.s, easeInOutCubic(t));
+    }
+  }
+  return PALIERS[PALIERS.length - 1].s;
+}
+
+function scaleToSize(scale) {
+  for (let i = 0; i < PALIERS.length - 1; i++) {
+    const a = PALIERS[i], b = PALIERS[i + 1];
+    if (scale <= b.s) {
+      const t = clamp((scale - a.s) / (b.s - a.s), 0, 1);
+      return Math.round(a.cm + t * (b.cm - a.cm));
+    }
+  }
+  return 200;
+}
+
+function scaleToUnit(cm) {
+  if (cm < 100) return { value: cm, unit: 'cm' };
+  return { value: (cm / 100).toFixed(1).replace('.0', ''), unit: 'm' };
+}
+
+const totalScrollable = () => document.documentElement.scrollHeight - window.innerHeight;
+
+window.addEventListener('scroll', () => {
+  targetScrollY = window.scrollY;
+  scrollVelocity = targetScrollY - lastScrollY;
+  lastScrollY = targetScrollY;
+  document.getElementById('progress-line').style.height = (targetScrollY / totalScrollable() * 100) + '%';
+  document.getElementById('nav').classList.toggle('solid', targetScrollY > 60);
+  if (targetScrollY > 80) document.getElementById('scroll-hint').style.opacity = '0';
+  document.getElementById('size-counter').classList.toggle('visible', targetScrollY / totalScrollable() > 0.08);
+}, { passive: true });
+
+const cursorEl = document.getElementById('cursor');
+let cursorTimeout;
+window.addEventListener('mousemove', (e) => {
+  mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+  mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
+  cursorEl.style.left = e.clientX + 'px';
+  cursorEl.style.top = e.clientY + 'px';
+  cursorEl.classList.add('active');
+  clearTimeout(cursorTimeout);
+  cursorTimeout = setTimeout(() => cursorEl.classList.remove('active'), 2000);
+});
+
+let lastTouchClientX = 0;
+let touchDeltaX = 0;
+window.addEventListener('touchmove', (e) => {
+  const t = e.touches[0];
+  touchDeltaX = (t.clientX - lastTouchClientX) / window.innerWidth * 2;
+  lastTouchClientX = t.clientX;
+  mouseX = (t.clientX / window.innerWidth) * 2 - 1;
+  mouseY = -(t.clientY / window.innerHeight) * 2 + 1;
+}, { passive: true });
+window.addEventListener('touchstart', (e) => {
+  lastTouchClientX = e.touches[0].clientX;
+  touchDeltaX = 0;
+}, { passive: true });
+
+const textBlocks = document.querySelectorAll('.text-block');
+const io = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('visible'); e.target.classList.remove('fade-out'); }
+    else if (e.boundingClientRect.top < 0) e.target.classList.add('fade-out');
+  });
+}, { threshold: 0.2, rootMargin: '-10% 0px -10% 0px' });
+textBlocks.forEach(el => io.observe(el));
+setTimeout(() => document.getElementById('tb-hero').classList.add('visible'), 400);
+
+const NAV_SECTIONS = ['s-phenomene', 's-residence', 's-artiste', 's-restitution'];
+document.querySelectorAll('[data-palier]').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    const idx = parseInt(a.dataset.palier);
+    const section = document.getElementById(NAV_SECTIONS[idx]);
+    if (!section) return;
+    window.scrollTo({ top: section.getBoundingClientRect().top + window.scrollY - 90, behavior: 'smooth' });
+    const s = PALIERS[idx].s;
+    cubeScale = s; targetCubeScale = s;
+    cube.scale.setScalar(s);
+  });
+});
+
+function calibratePaliers() {
+  const total = document.documentElement.scrollHeight - window.innerHeight;
+  if (total <= 0) return;
+  NAV_SECTIONS.forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (el) PALIERS[i].progress = clamp((el.getBoundingClientRect().top + window.scrollY - 80) / total, 0, 1);
+  });
+}
+window.addEventListener('load', calibratePaliers);
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  calibratePaliers();
+});
+
+let lastTime = 0;
+function animate(time) {
+  requestAnimationFrame(animate);
+  const dt = Math.min((time - lastTime) / 1000, 0.05);
+  lastTime = time;
+  autonomousT += dt;
+
+  scrollY = lerp(scrollY, targetScrollY, 0.08);
+  const progress = scrollY / totalScrollable();
+
+  targetCubeScale = scrollToScale(progress);
+  cubeScale = lerp(cubeScale, targetCubeScale, 0.025 + Math.abs(scrollVelocity) * 0.0002);
+  cube.scale.setScalar(cubeScale);
+
+  targetRotY = mouseX * 0.55 + autonomousT * 0.04 + touchDeltaX * 3.0;
+  targetRotX = -mouseY * 0.18 + Math.sin(autonomousT * 0.03) * 0.08;
+  rotY = lerp(rotY, targetRotY, 0.06);
+  rotX = lerp(rotX, targetRotX, 0.06);
+  touchDeltaX *= 0.85; // amortissement progressif
+  cube.rotation.y = rotY;
+  cube.rotation.x = rotX;
+
+  cube.position.y = lerp(0, -0.3, clamp((cubeScale - 0.5) / 3.5, 0, 1)) + Math.sin(autonomousT * 0.08) * 0.008;
+
+  cubeOpacity = lerp(cubeOpacity, progress > 0.01 ? 1 : 0, 0.06);
+  material.opacity = cubeOpacity;
+  edgesMat.opacity = clamp((cubeScale - 0.1) / 0.4, 0, 0.25);
+
+  const cm = scaleToSize(cubeScale);
+  const { value, unit } = scaleToUnit(cm);
+  document.getElementById('size-value').textContent = value;
+  document.getElementById('size-unit').textContent = unit;
+
+  camera.position.x = Math.sin(autonomousT * 0.05) * 0.04;
+  camera.position.y = Math.cos(autonomousT * 0.04) * 0.02;
+  camera.lookAt(0, 0, 0);
+  renderer.render(scene, camera);
+  scrollVelocity *= 0.92;
+}
+
+const canvasContainer = document.getElementById('canvas-container');
+new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    canvasContainer.style.opacity = e.isIntersecting ? '0' : '1';
+    canvasContainer.style.transition = 'opacity 1.8s ease';
+  });
+}, { threshold: 0.25 }).observe(document.querySelector('footer'));
+
+animate(0);
+
+document.querySelectorAll('a, button').forEach(el => {
+  el.addEventListener('mouseenter', () => cursorEl.classList.add('expand'));
+  el.addEventListener('mouseleave', () => cursorEl.classList.remove('expand'));
+});
+</script>
+</body>
+</html>
